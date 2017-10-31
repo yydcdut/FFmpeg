@@ -361,6 +361,38 @@ end:
 #endif
 }
 
+static void (*av_notify_msg_callback)(void *ffp,int, int, void *, int) = NULL;
+static void *  av_notify_ctx_ffp = NULL;
+
+void av_set_notify_msg_callback(void *ctx_ffp,void (*callback)(void*, int, int, void *, int))
+{
+    av_notify_ctx_ffp = ctx_ffp;
+    av_notify_msg_callback = callback;
+}
+
+void av_notify_msg( int mainerr, int suberr, void *obj, int obj_len)
+{
+    if(av_notify_msg_callback != NULL) {
+        av_notify_msg_callback(av_notify_ctx_ffp,mainerr,suberr,obj,obj_len);
+    }
+}
+static void (*av_notify_err_string_callback)(void *ffp,int, int, void *, int) = NULL;
+
+void av_set_notify_err_string_callback(void *ctx_ffp,void (*callback)(void*, int, int, void *, int))
+{
+    av_notify_ctx_ffp = ctx_ffp;
+    av_notify_err_string_callback = callback;
+}
+
+void av_notify_err_string( int mainerr, int suberr, void *str, int ret)
+{
+    if(av_notify_err_string_callback != NULL) {
+        av_notify_err_string_callback(av_notify_ctx_ffp,mainerr,suberr,str,ret);
+    }
+}
+
+
+
 static void (*av_log_callback)(void*, int, const char*, va_list) =
     av_log_default_callback;
 

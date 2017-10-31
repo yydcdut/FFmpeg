@@ -413,13 +413,20 @@ static int init_input(AVFormatContext *s, const char *filename,
         (!s->iformat && (s->iformat = av_probe_input_format2(&pd, 0, &score))))
         return score;
 
-    if ((ret = s->io_open(s, &s->pb, filename, AVIO_FLAG_READ | s->avio_flags, options)) < 0)
+    if ((ret = s->io_open(s, &s->pb, filename, AVIO_FLAG_READ | s->avio_flags, options)) < 0) {
+        av_notify_err_string(MEDIA_ERROR_FFP_AOI_INIT,MEDIA_ERROR_FFP_AOI_HTTP_OPEN,"io_open",ret);
         return ret;
+    }
 
     if (s->iformat)
         return 0;
-    return av_probe_input_buffer2(s->pb, &s->iformat, filename,
+
+    ret = av_probe_input_buffer2(s->pb, &s->iformat, filename,
                                  s, 0, s->format_probesize);
+    if(ret < 0 ) {
+        av_notify_err_string(MEDIA_ERROR_FFP_AOI_INIT,MEDIA_ERROR_FFP_AOI_PROBE,"av_probe_input_buffer2",ret);
+    }
+    return ret;
 }
 
 static int add_to_pktbuf(AVPacketList **packet_buffer, AVPacket *pkt,
@@ -534,8 +541,14 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
     if ((ret = av_opt_set_dict(s, &tmp)) < 0)
         goto fail;
 
-    if ((ret = init_input(s, filename, &tmp)) < 0)
+    if ((ret = init_input(s, filename, &tmp)) < 0){
+//	av_notify_msg(MEDIA_ERROR_FFP_IJK_PLAYER_AVFORMAT_OPEN_INPUT
+//			,MEDIA_ERROR_FFP_IJK_PLAYER_AVFORMAT_OPEN_INPUT_INIT,"init_input err",15);
+        av_notify_err_string(MEDIA_ERROR_FFP_IJK_PLAYER_AVFORMAT_OPEN_INPUT,
+			MEDIA_ERROR_FFP_AOI_INIT,"init_input",ret);
+
         goto fail;
+    }
     s->probe_score = ret;
 
     if (!s->protocol_whitelist && s->pb && s->pb->protocol_whitelist) {
@@ -597,10 +610,16 @@ int avformat_open_input(AVFormatContext **ps, const char *filename,
             if (options)
                 av_dict_copy(&tmp2, *options, 0);
 
-            if ((ret = s->iformat->read_header2(s, &tmp2)) < 0)
+            if ((ret = s->iformat->read_header2(s, &tmp2)) < 0) {
+		av_notify_err_string(MEDIA_ERROR_FFP_IJK_PLAYER_AVFORMAT_OPEN_INPUT,
+				MEDIA_ERROR_FFP_MOV_HEADER,"read_header2 ",ret);
                 goto fail;
-        } else if (s->iformat->read_header && (ret = s->iformat->read_header(s)) < 0)
+	    }
+        } else if (s->iformat->read_header && (ret = s->iformat->read_header(s)) < 0) {
+		av_notify_err_string(MEDIA_ERROR_FFP_IJK_PLAYER_AVFORMAT_OPEN_INPUT,
+				MEDIA_ERROR_FFP_MOV_HEADER,"read_header ",ret);
             goto fail;
+	}
     }
 
     if (!s->metadata) {

@@ -223,6 +223,7 @@ static int http_open_cnx_internal(URLContext *h, AVDictionary **options)
     if (use_proxy) {
         /* Reassemble the request URL without auth string - we don't
          * want to leak the auth to the proxy. */
+
         ff_url_join(urlbuf, sizeof(urlbuf), proto, NULL, hostname, port, "%s",
                     path1);
         path = urlbuf;
@@ -233,19 +234,26 @@ static int http_open_cnx_internal(URLContext *h, AVDictionary **options)
     ff_url_join(buf, sizeof(buf), lower_proto, NULL, hostname, port, NULL);
 
     if (!s->hd) {
+
         av_dict_set_int(options, "ijkapplication", (int64_t)(intptr_t)s->app_ctx, 0);
         err = ffurl_open_whitelist(&s->hd, buf, AVIO_FLAG_READ_WRITE,
                                    &h->interrupt_callback, options,
                                    h->protocol_whitelist, h->protocol_blacklist, h);
-        if (err < 0)
+        if (err < 0) {
+	    av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPEN,
+			MEDIA_ERROR_FFP_AOI_HTTP_OPENWL,"http_open__ffurl_open_whitelist",err);
             return err;
+	}
     }
 
     av_strlcpy(prev_location, s->location, sizeof(prev_location));
     err = http_connect(h, path, local_path, hoststr,
                        auth, proxyauth, &location_changed);
-    if (err < 0)
+    if (err < 0) {
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPEN,
+			MEDIA_ERROR_FFP_AOI_HTTP_CONNECT,"http_open__http_connect",err);
         return err;
+    }
 
     return location_changed;
 }
@@ -302,8 +310,13 @@ redo:
 fail:
     if (s->hd)
         ffurl_closep(&s->hd);
-    if (location_changed < 0)
+    if (location_changed < 0){
+	    av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPEN,
+		    MEDIA_ERROR_FFP_AOI_HTTP_OPEN_CNTX,"http_open_cnx_internal location changed",location_changed);
         return location_changed;
+    }
+    av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPEN,
+		    MEDIA_ERROR_FFP_AOI_HTTP_OPEN_CNTX,"http_open_cnx_internal",ff_http_averror(s->http_code, AVERROR(EIO)));
     return ff_http_averror(s->http_code, AVERROR(EIO));
 }
 
@@ -510,6 +523,7 @@ static int http_open(URLContext *h, const char *uri, int flags,
         av_dict_copy(&s->chained_options, *options, 0);
 
     if (s->headers) {
+
         int len = strlen(s->headers);
         if (len < 2 || strcmp("\r\n", s->headers + len - 2)) {
             av_log(h, AV_LOG_WARNING,
@@ -991,14 +1005,21 @@ static int http_read_header(URLContext *h, int *new_location)
     s->chunksize = UINT64_MAX;
 
     for (;;) {
-        if ((err = http_get_line(s, line, sizeof(line))) < 0)
+        if ((err = http_get_line(s, line, sizeof(line))) < 0) {
+            av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_CONNECT_READHEADER,
+			    MEDIA_ERROR_FFP_AOI_HTTP_CONNECT_READHEADER_READ,"http_get_line",err);
             return err;
+	}
 
         av_log(h, AV_LOG_TRACE, "header='%s'\n", line);
 
         err = process_line(h, line, s->line_count, new_location);
-        if (err < 0)
+        if (err < 0) {
+            av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_CONNECT_READHEADER,
+			    MEDIA_ERROR_FFP_AOI_HTTP_CONNECT_READHEADER_PROCESS,"process_line",err);
             return err;
+	}
+
         if (err == 0)
             break;
         s->line_count++;
@@ -1148,12 +1169,18 @@ static int http_connect(URLContext *h, const char *path, const char *local_path,
     }
 
 
-    if ((err = ffurl_write(s->hd, s->buffer, strlen(s->buffer))) < 0)
+    if ((err = ffurl_write(s->hd, s->buffer, strlen(s->buffer))) < 0) {
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_CONNECT,
+			MEDIA_ERROR_FFP_AOI_HTTP_CONNECT_TCPWRITE,"http_write_tcp_write",err);
         goto done;
+    }
 
     if (s->post_data)
-        if ((err = ffurl_write(s->hd, s->post_data, s->post_datalen)) < 0)
+        if ((err = ffurl_write(s->hd, s->post_data, s->post_datalen)) < 0) {
+	    av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_CONNECT,
+			MEDIA_ERROR_FFP_AOI_HTTP_CONNECT_TCPWRITE,"http_write_post tcp_write",err);
             goto done;
+	}
 
     /* init input buffer */
     s->buf_ptr          = s->buffer;
@@ -1450,6 +1477,7 @@ static int http_write(URLContext *h, const uint8_t *buf, int size)
 
     if (!s->chunked_post) {
         /* non-chunked data is sent without any special encoding */
+
         return ffurl_write(s->hd, buf, size);
     }
 

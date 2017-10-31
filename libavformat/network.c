@@ -88,13 +88,30 @@ int ff_network_wait_fd_timeout(int fd, int write, int64_t timeout, AVIOInterrupt
         if (ff_check_interrupt(int_cb))
             return AVERROR_EXIT;
         ret = ff_network_wait_fd(fd, write);
+	if(ret < 0 && write == 1 ){
+            av_notify_err_string(MEDIA_ERROR_FFP_AOI_TCPWRITE,
+			    MEDIA_ERROR_FFP_AOI_TCPWRITE_WAITERR,"poll write err",ret);
+	}else if(ret < 0 ) {
+	    av_notify_err_string(MEDIA_ERROR_FFP_AOI_TCPREAD,
+			    MEDIA_ERROR_FFP_AOI_TCPREAD_WAITERR,"poll read err",ret);
+
+        }
         if (ret != AVERROR(EAGAIN))
             return ret;
         if (timeout > 0) {
             if (!wait_start)
                 wait_start = av_gettime_relative();
-            else if (av_gettime_relative() - wait_start > timeout)
+            else if (av_gettime_relative() - wait_start > timeout) {
+		if(write == 1 ){
+	            av_notify_err_string(MEDIA_ERROR_FFP_AOI_TCPWRITE,
+			MEDIA_ERROR_FFP_AOI_TCPWRITE_TIMEOUT,"poll write err",AVERROR(ETIMEDOUT));
+		}else {
+		    av_notify_err_string(MEDIA_ERROR_FFP_AOI_TCPREAD,
+			MEDIA_ERROR_FFP_AOI_TCPREAD_TIMEOUT,"poll read timeout",AVERROR(ETIMEDOUT));
+		}
+
                 return AVERROR(ETIMEDOUT);
+	    }
         }
     }
 }

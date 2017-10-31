@@ -314,8 +314,12 @@ int ffurl_open_whitelist(URLContext **puc, const char *filename, int flags,
     AVDictionary *tmp_opts = NULL;
     AVDictionaryEntry *e;
     int ret = ffurl_alloc(puc, filename, flags, int_cb);
-    if (ret < 0)
+    if (ret < 0) {
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPENWL,
+			MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_FP,"ffurl_open_whitelis__find_protocol",ret);
         return ret;
+    }
+
     if (parent)
         av_opt_copy(*puc, parent);
     if (options &&
@@ -345,6 +349,10 @@ int ffurl_open_whitelist(URLContext **puc, const char *filename, int flags,
         goto fail;
 
     ret = ffurl_connect(*puc, options);
+    if(ret < 0){
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPENWL,
+			MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN,"ffurl_open_whitelis__tcp_open",ret);
+    }
 
     if (!ret)
         return 0;

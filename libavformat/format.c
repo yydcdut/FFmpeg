@@ -314,8 +314,13 @@ int av_probe_input_buffer2(AVIOContext *pb, AVInputFormat **fmt,
         if ((ret = avio_read(pb, buf + buf_offset,
                              probe_size - buf_offset)) < 0) {
             /* Fail if error was not end of file, otherwise, lower score. */
-            if (ret != AVERROR_EOF)
+            if (ret != AVERROR_EOF) {
+		if (ret < 0 ) {
+		   av_notify_err_string(MEDIA_ERROR_FFP_AOI_PROBE,
+				   MEDIA_ERROR_FFP_AOI_PROBE_AVIOREAD,"av_probe_input_buffer2 avio_read",ret);
+		}
                 goto fail;
+	    }
 
             score = 0;
             ret   = 0;          /* error was end of file, nothing read */
@@ -357,6 +362,10 @@ fail:
     if (ret >= 0)
         ret = ret2;
 
+    if(ret < 0 ) {
+	 av_notify_err_string(MEDIA_ERROR_FFP_AOI_PROBE,
+			MEDIA_ERROR_FFP_AOI_PROBE_FORMAT,"av_probe_input_format2 invaliddata",ret);
+    }
     av_freep(&pd.mime_type);
     return ret < 0 ? ret : score;
 }

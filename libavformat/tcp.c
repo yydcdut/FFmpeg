@@ -526,6 +526,7 @@ static int tcp_open(URLContext *h, const char *uri, int flags)
     if (s->dns_cache) {
         memcpy(hostname_bak, hostname, 1024);
         hit_dns_cache = get_dns_cache(h, hostname, &ai);
+
     }
 
     if (!hit_dns_cache) {
@@ -541,6 +542,8 @@ static int tcp_open(URLContext *h, const char *uri, int flags)
 #endif
 
         if (ret) {
+	    av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN,
+			    MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN_DNS,"tcp_open__getaddrinfo",ret);
             av_log(h, AV_LOG_ERROR,
                 "Failed to resolve hostname %s: %s\n",
                 hostname, gai_strerror(ret));
@@ -566,6 +569,8 @@ static int tcp_open(URLContext *h, const char *uri, int flags)
                    cur_ai->ai_protocol);
     if (fd < 0) {
         ret = ff_neterrno();
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN,
+			MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN_SOCKET,"tcp_open__socket",ret);
         goto fail;
     }
 
@@ -598,6 +603,18 @@ static int tcp_open(URLContext *h, const char *uri, int flags)
 
         if ((ret = ff_listen_connect(fd, cur_ai->ai_addr, cur_ai->ai_addrlen,
                                      s->open_timeout / 1000, h, !!cur_ai->ai_next)) < 0) {
+
+		struct sockaddr_in *sinp;
+		char *addr;
+		char abuf[INET_ADDRSTRLEN];
+		char retbuf[100] = {0};
+		sinp = (struct sockaddr_in *)cur_ai->ai_addr;
+		if(cur_ai->ai_family == AF_INET){
+                    addr = inet_ntop(AF_INET,&sinp->sin_addr,abuf,INET_ADDRSTRLEN);
+		}
+		sprintf(retbuf,"tcp_open__connect ip=%s, open_timeout=%d",addr,s->open_timeout);
+		av_notify_err_string(MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN,
+				MEDIA_ERROR_FFP_AOI_HTTP_OPENWL_TCPOPEN_CONNET,retbuf,ret);
             if (av_application_on_tcp_did_open(s->app_ctx, ret, fd, &control))
                 goto fail1;
             if (ret == AVERROR_EXIT)
@@ -685,6 +702,10 @@ static int tcp_read(URLContext *h, uint8_t *buf, int size)
             return ret;
     }
     ret = recv(s->fd, buf, size, 0);
+    if (ret < 0 ){
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_TCPREAD,
+			MEDIA_ERROR_FFP_AOI_TCPREAD_RECVERR,"tcp_read__recv",ff_neterrno());
+    }
     if (ret > 0)
         av_application_did_io_tcp_read(s->app_ctx, (void*)h, ret);
     return ret < 0 ? ff_neterrno() : ret;
@@ -701,6 +722,10 @@ static int tcp_write(URLContext *h, const uint8_t *buf, int size)
             return ret;
     }
     ret = send(s->fd, buf, size, MSG_NOSIGNAL);
+    if (ret < 0 ){
+	av_notify_err_string(MEDIA_ERROR_FFP_AOI_TCPWRITE,
+			MEDIA_ERROR_FFP_AOI_TCPWRITE_SENDERR,"tcp_write__send",ff_neterrno());
+    }
     return ret < 0 ? ff_neterrno() : ret;
 }
 

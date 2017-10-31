@@ -5950,6 +5950,7 @@ static int mov_read_header(AVFormatContext *s)
     if (mov->decryption_key_len != 0 && mov->decryption_key_len != AES_CTR_KEY_SIZE) {
         av_log(s, AV_LOG_ERROR, "Invalid decryption key len %d expected %d\n",
             mov->decryption_key_len, AES_CTR_KEY_SIZE);
+	av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,MEDIA_ERROR_FFP_MOV_HEADER_DECR,NULL,AVERROR(EINVAL));
         return AVERROR(EINVAL);
     }
 
@@ -5967,12 +5968,15 @@ static int mov_read_header(AVFormatContext *s)
         avio_seek(pb, 0, SEEK_SET);
     if ((err = mov_read_default(mov, pb, atom)) < 0) {
         av_log(s, AV_LOG_ERROR, "error reading header\n");
+	av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,MEDIA_ERROR_FFP_MOV_HEADER_ERR_READING,"mov_read_default err",err);
         mov_read_close(s);
         return err;
     }
     } while ((pb->seekable & AVIO_SEEKABLE_NORMAL) && !mov->found_moov && !mov->moov_retry++);
     if (!mov->found_moov) {
         av_log(s, AV_LOG_ERROR, "moov atom not found\n");
+	av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+			MEDIA_ERROR_FFP_MOV_HEADER_MOOV_NOT_FOUND,"moov atom not found",AVERROR_INVALIDDATA);
         mov_read_close(s);
         return AVERROR_INVALIDDATA;
     }
@@ -6026,8 +6030,11 @@ static int mov_read_header(AVFormatContext *s)
                 st->codecpar->height = sc->height;
             }
             if (st->codecpar->codec_id == AV_CODEC_ID_DVD_SUBTITLE) {
-                if ((err = mov_rewrite_dvd_sub_extradata(st)) < 0)
+                if ((err = mov_rewrite_dvd_sub_extradata(st)) < 0) {
+		    av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_INVALIDDATA,"mov_rewrite_dvd_sub_extradata",err);
                     return err;
+		}
             }
         }
         if (mov->handbrake_version &&
@@ -6048,6 +6055,9 @@ static int mov_read_header(AVFormatContext *s)
                     av_log(s, AV_LOG_ERROR, "Overflow during bit rate calculation %"PRId64" * 8 * %d\n",
                            sc->data_size, sc->time_scale);
                     mov_read_close(s);
+
+		    av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_INVALIDDATA,"overflow during bit rate calc",AVERROR_INVALIDDATA);
                     return AVERROR_INVALIDDATA;
                 }
                 st->codecpar->bit_rate = sc->data_size * 8 * sc->time_scale / st->duration;
@@ -6064,6 +6074,8 @@ static int mov_read_header(AVFormatContext *s)
                     av_log(s, AV_LOG_ERROR, "Overflow during bit rate calculation %"PRId64" * 8 * %d\n",
                            sc->data_size, sc->time_scale);
                     mov_read_close(s);
+		    av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_INVALIDDATA,"overflow during bit rate calc mfra",AVERROR_INVALIDDATA);
                     return AVERROR_INVALIDDATA;
                 }
                 st->codecpar->bit_rate = sc->data_size * 8 * sc->time_scale /
@@ -6088,6 +6100,8 @@ static int mov_read_header(AVFormatContext *s)
         case AVMEDIA_TYPE_AUDIO:
             err = ff_replaygain_export(st, s->metadata);
             if (err < 0) {
+		    av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_SIDE_DATE,"ff_replaygain_export",err);
                 mov_read_close(s);
                 return err;
             }
@@ -6096,8 +6110,11 @@ static int mov_read_header(AVFormatContext *s)
             if (sc->display_matrix) {
                 err = av_stream_add_side_data(st, AV_PKT_DATA_DISPLAYMATRIX, (uint8_t*)sc->display_matrix,
                                               sizeof(int32_t) * 9);
-                if (err < 0)
+                if (err < 0) {
+			av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_SIDE_DATE,"add side data  display_matrix err",err);
                     return err;
+		}
 
                 sc->display_matrix = NULL;
             }
@@ -6105,8 +6122,11 @@ static int mov_read_header(AVFormatContext *s)
                 err = av_stream_add_side_data(st, AV_PKT_DATA_STEREO3D,
                                               (uint8_t *)sc->stereo3d,
                                               sizeof(*sc->stereo3d));
-                if (err < 0)
+                if (err < 0) {
+			av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_SIDE_DATE,"add side data stereo3d err",err);
                     return err;
+		}
 
                 sc->stereo3d = NULL;
             }
@@ -6114,8 +6134,11 @@ static int mov_read_header(AVFormatContext *s)
                 err = av_stream_add_side_data(st, AV_PKT_DATA_SPHERICAL,
                                               (uint8_t *)sc->spherical,
                                               sc->spherical_size);
-                if (err < 0)
+                if (err < 0) {
+			av_notify_err_string(MEDIA_ERROR_FFP_MOV_HEADER,
+				    MEDIA_ERROR_FFP_MOV_HEADER_SIDE_DATE,"add side data spherical err",err);
                     return err;
+		}
 
                 sc->spherical = NULL;
             }
