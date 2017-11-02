@@ -439,6 +439,7 @@ void av_set_notify_err_string_callback(void *ctx_ffp,void (*callback)(void*, int
 
 void av_notify_msg( int mainerr, int suberr, void *obj, int obj_len);
 void av_notify_err_string( int mainerr, int suberr, void *str, int ret);
+void av_set_notify_err_string_switch(int isopen);
 
 #if FF_API_DLOG
 /**

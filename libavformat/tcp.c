@@ -88,6 +88,19 @@ static pthread_mutex_t dns_dictionary_mutex;
 static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 static int init_mutex_ret = -1;
 
+
+static int g_open_addinfotimeout = 0;
+static int g_open_dns_cache = 0;
+
+void av_opt_set_addinfo_timeout_open(int open) {
+    g_open_addinfotimeout = open;
+}
+
+void av_opt_set_dns_cache_open(int open) {
+    g_open_dns_cache = open;
+}
+
+
 int ijk_tcp_getaddrinfo_nonblock(const char *hostname, const char *servname,
                                  const struct addrinfo *hints, struct addrinfo **res,
                                  int64_t timeout,
@@ -473,6 +486,23 @@ static int tcp_open(URLContext *h, const char *uri, int flags)
     int hit_dns_cache = 0;
     AVDictionaryEntry *elem = NULL;
     DnsCacheInfo *dns_cache_info = NULL;
+
+    if(g_open_addinfotimeout == 1){
+        s->addrinfo_timeout = 500000;
+        av_log(NULL, AV_LOG_WARNING, "g_open_addinfotimeout =1 \n");
+    }else{
+        s->addrinfo_timeout = -1;
+        av_log(NULL, AV_LOG_WARNING, "g_open_addinfotimeout =0 \n");
+    }
+
+    if(g_open_dns_cache == 1 ) {
+        av_log(NULL, AV_LOG_WARNING, "g_open_dns_cache =1 \n");
+        s->dns_cache = 1;
+    }else{
+        s->dns_cache = 0;
+        av_log(NULL, AV_LOG_WARNING, "g_open_dns_cache =0 \n");
+    }
+
     if (s->dns_cache && init_mutex_ret) {
         pthread_once(&key_once, private_mutex_init);
         if (init_mutex_ret) {

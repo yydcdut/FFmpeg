@@ -862,5 +862,6 @@ int av_opt_serialize(void *obj, int opt_flags, int flags, char **buffer,
 /**
  * @}
  */
-
+void av_opt_set_addinfo_timeout_open(int open);
+void av_opt_set_dns_cache_open(int open);
 #endif /* AVUTIL_OPT_H */

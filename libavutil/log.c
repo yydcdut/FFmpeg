@@ -377,6 +377,7 @@ void av_notify_msg( int mainerr, int suberr, void *obj, int obj_len)
     }
 }
 static void (*av_notify_err_string_callback)(void *ffp,int, int, void *, int) = NULL;
+static int av_notify_err_string_switch = 0;
 
 void av_set_notify_err_string_callback(void *ctx_ffp,void (*callback)(void*, int, int, void *, int))
 {
@@ -384,9 +385,13 @@ void av_set_notify_err_string_callback(void *ctx_ffp,void (*callback)(void*, int
     av_notify_err_string_callback = callback;
 }
 
+void av_set_notify_err_string_switch(int isopen){
+    av_notify_err_string_switch = 1;
+}
+
 void av_notify_err_string( int mainerr, int suberr, void *str, int ret)
 {
-    if(av_notify_err_string_callback != NULL) {
+    if(av_notify_err_string_switch == 1 && av_notify_err_string_callback != NULL) {
         av_notify_err_string_callback(av_notify_ctx_ffp,mainerr,suberr,str,ret);
     }
 }
